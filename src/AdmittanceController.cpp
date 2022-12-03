@@ -1,4 +1,4 @@
-#include "AdmittanceController.hpp"
+#include "ft_sensor/AdmittanceController.hpp"
 #define debug if(1) std::cout
 
 AdmittanceController::AdmittanceController()

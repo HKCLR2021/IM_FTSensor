@@ -21,14 +21,14 @@ void testRawDataFTDetection()
     printf("Press any key to start\n");
     std::cin.get();
     
-    OnRobot& ft_sensor = OnRobot::getInstance();
-    ft_sensor.startStreaming();
+    auto ft_sensor = OnRobotForceTorqueSensor::getInstance("192.168.1.1");
+    ft_sensor->startStreaming();
 
     printf("get double array Data\n");
     std::array<double, 6> data_darr;
     for (int i = 0; i < 300; ++i)
     {
-        ft_sensor.getLatestDataDArray(data_darr);
+        ft_sensor->getLatestDataDArray(data_darr);
         printData(data_darr);
         usleep(10000); // 10ms
     }
@@ -37,12 +37,12 @@ void testRawDataFTDetection()
     std::vector<double> data_vec;
     for (int i = 0; i < 300; ++i)
     {
-        ft_sensor.getLatestDataVec(data_vec);
+        ft_sensor->getLatestDataVec(data_vec);
         printData(data_vec);
         usleep(10000); // 10ms
     }
 
-    ft_sensor.stopStreaming();
+    ft_sensor->stopStreaming();
     return;
 }
 
@@ -54,13 +54,13 @@ void testEnergyTankFTDetection()
     std::cin.get();
 
     AdmittanceController admt_ctrl;
-    OnRobot& ft_sensor = OnRobot::getInstance();
-    ft_sensor.startStreaming();
+    auto ft_sensor = OnRobotForceTorqueSensor::getInstance();
+    ft_sensor->startStreaming();
 
     std::vector<double> data_vec;
     for (int i = 0; i < 300; ++i)
     {
-        ft_sensor.getLatestDataVec(data_vec);
+        ft_sensor->getLatestDataVec(data_vec);
         Eigen::VectorXd F_ext = Eigen::VectorXd::Map(data_vec.data(), data_vec.size() );
         std::cout << std::endl;
         std::cout << i << ": " << admt_ctrl.computeAdmtOutput(F_ext).transpose() << std::endl;
@@ -68,7 +68,7 @@ void testEnergyTankFTDetection()
         usleep(10000); // 10ms
     }
 
-    ft_sensor.stopStreaming();
+    ft_sensor->stopStreaming();
     return;
 }
 

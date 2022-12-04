@@ -1,6 +1,28 @@
 #include "ft_sensor/OnRobot.hpp"
 
-OnRobot::OnRobot()
+std::map<std::string, std::weak_ptr<OnRobotForceTorqueSensor>> OnRobotForceTorqueSensor::instances;
+
+std::shared_ptr<OnRobotForceTorqueSensor> OnRobotForceTorqueSensor::getInstance(
+    std::string ipAddress, 
+    int32 sampleingHz, 
+    int32 filterType, 
+    bool enableBiasing
+){
+    
+    auto search = instances.find(ipAddress);
+    if (search != instances.end()){
+        auto instance = search->second;
+        if (!instance.expired()) return instance.lock();
+    }
+    
+    auto instance = std::shared_ptr<OnRobotForceTorqueSensor>(
+        new OnRobotForceTorqueSensor(ipAddress, sampleingHz, filterType, enableBiasing)
+    );
+    instances[ipAddress] = instance;
+    return instance;
+}
+
+OnRobotForceTorqueSensor::OnRobotForceTorqueSensor(std::string ipAddress, int32 sampleingHz, int32 filterType, bool enableBiasing)
 {
     handle_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (handle_ == -1) { 
@@ -8,22 +30,26 @@ OnRobot::OnRobot()
 	}
 
     // Connect sensor
-    const char *ipAddress = "192.168.1.1";
-    uint16 port = PORT;
-    openDevice(ipAddress, port);
+    openDevice(ipAddress.c_str(), PORT);
 
     printf("OnRobot FT Sensor connected, Initializing...\n");
 
     // Init with default settings
-    setSamplingRate(100); // 100Hz
-    setFilterType(4); // 15Hz LPF
-    enableBiasing(true); // biasing on
+    setSamplingRate(sampleingHz);    // 100Hz
+    setFilterType(filterType);       // default: 4 i.e 15Hz LPF
+    setEnableBiasing(enableBiasing); // biasing on
     
     printf("OnRobot Initialization done.\n");
 }
 
+OnRobotForceTorqueSensor::~OnRobotForceTorqueSensor(){
+    stopStreaming();
+    usleep(samplingDt_us*(SAMPLE_COUNT+2)); // wait till rx_thread is done (?)
+    closeDevice();
+}
 
-int OnRobot::openDevice(const char * ipAddress, uint16 port)
+
+int OnRobotForceTorqueSensor::openDevice(const char * ipAddress, uint16 port)
 {
 	struct sockaddr_in addr;	
 	struct hostent *he;	
@@ -41,7 +67,7 @@ int OnRobot::openDevice(const char * ipAddress, uint16 port)
 	return 0;
 }
 
-Response OnRobot::receive()
+Response OnRobotForceTorqueSensor::receive()
 {
     byte inBuffer[36];
 	Response response;
@@ -59,7 +85,7 @@ Response OnRobot::receive()
 	return response;
 }
 
-void OnRobot::getLatestDataDArray(std::array<double, 6> &data_darr)
+void OnRobotForceTorqueSensor::getLatestDataDArray(std::array<double, 6> &data_darr)
 {
     rx_lck_.lock();
     std::copy(std::begin(data_buf_), std::end(data_buf_), std::begin(data_darr) );
@@ -67,7 +93,7 @@ void OnRobot::getLatestDataDArray(std::array<double, 6> &data_darr)
 }
 
 
-void OnRobot::getLatestDataVec(std::vector<double> &data_dvec)
+void OnRobotForceTorqueSensor::getLatestDataVec(std::vector<double> &data_dvec)
 {
     rx_lck_.lock();
     data_dvec = std::vector<double> (std::begin(data_buf_), std::end(data_buf_) );
@@ -75,7 +101,7 @@ void OnRobot::getLatestDataVec(std::vector<double> &data_dvec)
 }
 
 
-void OnRobot::showResponse(Response r)
+void OnRobotForceTorqueSensor::showResponse(Response r)
 {
     double fx = r.fx / FORCE_DIV;
 	double fy = r.fy / FORCE_DIV;
@@ -91,14 +117,18 @@ void OnRobot::showResponse(Response r)
         fflush(stdout);
 }
 
-bool OnRobot::setSamplingRate(int32 frequency)
+bool OnRobotForceTorqueSensor::setSamplingRate(int32 samplingHz)
 {
-    /* 1000 / SPEED = Speed in Hz */
-    uint32 cmd_speed = 1000 / frequency;
-    sendCommand(COMMAND_SPEED, cmd_speed);
+    this->samplingHz = samplingHz;
+    this->samplingDt_ms = 1000 / samplingHz;
+    this->samplingDt_us = this->samplingDt_ms * 1000;
+
+    sendCommand(COMMAND_SPEED, this->samplingDt_ms);
+
+    return true;
 }
 
-bool OnRobot::setFilterType(int32 filter_type)
+bool OnRobotForceTorqueSensor::setFilterType(int32 filter_type)
 {
     /*  0 = No filter; 
         1 = 500 Hz; 
@@ -108,21 +138,22 @@ bool OnRobot::setFilterType(int32 filter_type)
         5 = 5 Hz; 
         6 = 1.5 Hz */
     sendCommand(COMMAND_FILTER, filter_type);
+    return true;
 }
 
-bool OnRobot::enableBiasing(bool biasing_on)
+bool OnRobotForceTorqueSensor::setEnableBiasing(bool biasing_on)
 {
     uint32 cmd_bias = biasing_on ? 0xFF : 0X00;
     sendCommand(COMMAND_BIAS, cmd_bias);
     return true;
 }
 
-void* OnRobot::static_rx_thread(void* pThis)
+void* OnRobotForceTorqueSensor::static_rx_thread(void* pThis)
 {
-    static_cast<OnRobot*>(pThis)->rx_thread();
+    static_cast<OnRobotForceTorqueSensor*>(pThis)->rx_thread();
 }
 
-void OnRobot::rx_thread()
+void OnRobotForceTorqueSensor::rx_thread()
 {
     while (!rx_stop_)
     {
@@ -143,14 +174,14 @@ void OnRobot::rx_thread()
             data_buf_ = {fx, fy, fz, tx, ty, tz};
             rx_lck_.unlock();
 
-            usleep(10000); // wait for 10ms
+            usleep(samplingDt_us);
         }
     }
 
     pthread_exit(0);
 }
 
-void OnRobot::startStreaming()
+void OnRobotForceTorqueSensor::startStreaming()
 {
     rx_stop_ = false;
     if (pthread_create(&threadid_, NULL, static_rx_thread, (void*)this ) != 0 )    
@@ -161,12 +192,12 @@ void OnRobot::startStreaming()
 
 }
 
-void OnRobot::stopStreaming()
+void OnRobotForceTorqueSensor::stopStreaming()
 {
     rx_stop_ = true;
 }
 
-void OnRobot::sendCommand(uint16 command, uint32 data)
+void OnRobotForceTorqueSensor::sendCommand(uint16 command, uint32 data)
 {
 	byte request[8];
 	*(uint16*)&request[0] = htons(0x1234); 

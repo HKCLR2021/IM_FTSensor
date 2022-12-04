@@ -12,13 +12,13 @@
 #include <pthread.h>
 #include <vector>
 #include <shared_mutex>
+#include <map>
+#include <memory>
 
 typedef int SOCKET_HANDLE;
 
 #define PORT			49152	/* Port the Ethernet DAQ always uses */
 #define SAMPLE_COUNT	10		/* 10 incoming samples */
-#define SPEED			10		/* 1000 / SPEED = Speed in Hz */
-#define FILTER			4		/* 0 = No filter; 1 = 500 Hz; 2 = 150 Hz; 3 = 50 Hz; 4 = 15 Hz; 5 = 5 Hz; 6 = 1.5 Hz */
 #define BIASING_ON		0xFF    /* Biasing on */
 #define BIASING_OFF		0x00    /* Biasing off */
 
@@ -57,39 +57,54 @@ typedef struct ResponseStruct {
 	int32 tz;
 } Response;
 
-class OnRobot
+class OnRobotForceTorqueSensor
 {
 public:
-    OnRobot();
-    ~OnRobot() {};
 
-    static OnRobot &getInstance()
-    {
-        static OnRobot instance;
-        return instance;
-    }
-    OnRobot(OnRobot const &) = delete;
-    void operator=(OnRobot const &) = delete;
+    static std::shared_ptr<OnRobotForceTorqueSensor> getInstance(
+        std::string ipAddress = "192.168.1.1", 
+        int32 sampleingHz = 100, 
+        int32 filterType = 4, 
+        bool enableBiasing = true
+    );
 
-    // Init & setting related stuff
-    int openDevice(const char * ipAddress, uint16 port);
-    bool disconnect() { close(handle_); }
+    ~OnRobotForceTorqueSensor();
 
-    bool setSamplingRate(int32 frequency);
-    bool setFilterType(int32 frequency);
-    bool enableBiasing(bool biasing_on);
+    OnRobotForceTorqueSensor(OnRobotForceTorqueSensor const &) = delete;
+    void operator=(OnRobotForceTorqueSensor const &) = delete;
+
+    // setting related stuff
+    bool setSamplingRate(int32 samplingHz);
+    bool setFilterType(int32 filter_type);
+    bool setEnableBiasing(bool biasing_on);
+
+    int32 getSamplingRate() {return samplingHz;}
 
     // Data receving
     void startStreaming();
     void stopStreaming();
-    void showResponse(Response r);
     
     void getLatestDataDArray(std::array<double, 6> &data_darr);
     void getLatestDataVec(std::vector<double> &data_dvec);
 
 private:
-    SOCKET_HANDLE handle_;
+    
+    static std::map<std::string, std::weak_ptr<OnRobotForceTorqueSensor>> instances;
+    
+    OnRobotForceTorqueSensor(std::string ipAddress, int32 sampleingHz, int32 filterType, bool enableBiasing);
+
+    int openDevice(const char * ipAddress, uint16 port);
+    int closeDevice() { close(handle_); return 1;}
+
     void sendCommand(uint16 command, uint32 data);
+
+    void showResponse(Response r);
+
+    SOCKET_HANDLE handle_;
+
+    int32 samplingHz=100;
+    int32 samplingDt_ms=10;
+    int32 samplingDt_us=10000;
 
     // rx thread 
     std::array<double, 6> data_buf_;

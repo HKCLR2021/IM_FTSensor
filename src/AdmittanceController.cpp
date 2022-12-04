@@ -26,7 +26,9 @@ AdmittanceController::AdmittanceController()
 
 }
 
-
+// h as in Eq8 of paper. range of h: 0-1
+// h=0 -> robot free to move
+// h=1 -> persistent external force exist (eg. obstacle hit / human trying to hold and guide the robot)
 double AdmittanceController::computeAdmittanceRatio()
 {
     if (E_m > E_thres)
@@ -36,6 +38,10 @@ double AdmittanceController::computeAdmittanceRatio()
     return h;
 }
 
+// dx_a as in Eq1 of paper
+// i.e. the estimated intent of the detected external force, expressed as velocity desired
+// for use in a robot (real space) velocity controller
+// expect to be called every dt (i.e. dafault 10ms)
 Eigen::VectorXd AdmittanceController::computeAdmtOutput(Eigen::VectorXd F_ext)
 {
     // Control Loop

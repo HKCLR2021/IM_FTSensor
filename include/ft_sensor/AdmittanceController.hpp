@@ -4,6 +4,10 @@
 #include <algorithm>
 #include <iostream>
 
+// Implementation of algo proposed in: 
+// A dynamical system approach for detection and reaction to human
+// guidance in physical human–robot interaction
+// https://www.researchgate.net/publication/343008526_A_dynamical_system_approach_for_detection_and_reaction_to_human_guidance_in_physical_human-robot_interaction
 
 class AdmittanceController
 {

@@ -1,4 +1,4 @@
-#include "ft_sensor/OnRobot.hpp"
+#include "ft_sensor/OnRobotForceTorqueSensor.hpp"
 
 std::map<std::string, std::weak_ptr<OnRobotForceTorqueSensor>> OnRobotForceTorqueSensor::instances;
 

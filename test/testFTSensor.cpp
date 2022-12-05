@@ -1,5 +1,5 @@
 #include "ft_sensor/AdmittanceController.hpp"
-#include "ft_sensor/OnRobot.hpp"
+#include "ft_sensor/OnRobotForceTorqueSensor.hpp"
 #include <stdlib.h>
 #include <iostream>
 

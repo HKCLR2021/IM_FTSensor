@@ -22,7 +22,8 @@ find_package(Eigen3 REQUIRED)
 
 add_library(${PROJECT_NAME} SHARED
             src/AdmittanceController.cpp
-            src/OnRobot.cpp
+            src/HindranceDetector.cpp
+            src/OnRobotForceTorqueSensor.cpp
             )   
 
 # Include directories

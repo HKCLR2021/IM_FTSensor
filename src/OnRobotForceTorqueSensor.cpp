@@ -161,7 +161,7 @@ void OnRobotForceTorqueSensor::rx_thread()
         for (int i = 0; i < SAMPLE_COUNT; ++i)
         {
             Response r = receive();
-            // showResponse(r); // logging data
+            if (verbose_) showResponse(r); // logging data
             
             rx_lck_.lock();
             // Data formatting
@@ -181,8 +181,10 @@ void OnRobotForceTorqueSensor::rx_thread()
     pthread_exit(0);
 }
 
-void OnRobotForceTorqueSensor::startStreaming()
+void OnRobotForceTorqueSensor::startStreaming(bool verbose)
 {
+    verbose_ = verbose;
+
     rx_stop_ = false;
     if (pthread_create(&threadid_, NULL, static_rx_thread, (void*)this ) != 0 )    
     {

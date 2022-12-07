@@ -82,8 +82,9 @@ Eigen::VectorXd HindranceDetector::computeAdmittanceOutput(Eigen::VectorXd F_ext
     return dx_a;
 }
 
-bool HindranceDetector::startMonitor(){
+bool HindranceDetector::startMonitor(bool verbose){
 
+    verbose_ = verbose;
     if (pendingStop_) return false;
     if (isRunning_) return true;
     
@@ -105,16 +106,22 @@ bool HindranceDetector::startMonitor(){
             Eigen::VectorXd F_ext = Eigen::VectorXd::Map(data_darr.data(), data_darr.size() );
             computeAdmittanceOutput(F_ext);
 
+            if (verbose_){
+                debug << "H : " << h << " Admitance : " << dx_a << std::endl;
+            }
+
             // trigger callback on Hinderance detected/cleared
             if (h>0.7 && !hasHinderance_){
                 hasHinderance_ = true;
                 for (auto& observer : hookedObservers_){
+                    if (verbose) debug << "Hindrance Detected" << std::endl;
                     observer->onHindranceDetected();
                 }                
             }
             else if (h<0.3 && hasHinderance_){
                 hasHinderance_ = false;
                 for (auto& observer : hookedObservers_){
+                    if (verbose) debug << "Hindrance Cleared" << std::endl;
                     observer->onHindranceCleared();
                 }
             }

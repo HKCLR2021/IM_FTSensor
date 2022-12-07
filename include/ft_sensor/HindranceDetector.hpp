@@ -35,7 +35,7 @@ public:
     );
     ~HindranceDetector();
 
-    bool startMonitor();
+    bool startMonitor(bool verbose=false);
     bool stopMonitor();
 
     //  0.0 = never detects
@@ -87,6 +87,8 @@ private:
     Eigen::VectorXd dx_a;
     Eigen::VectorXd F_h;
 
+    bool verbose_ = false;
+    
     // thread control related
     bool isRunning_ = false;
     bool pendingStop_ = false;

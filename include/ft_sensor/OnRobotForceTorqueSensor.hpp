@@ -81,7 +81,7 @@ public:
     int32 getSamplingRate() {return samplingHz;}
 
     // Data receving
-    void startStreaming();
+    void startStreaming(bool verbose=false);
     void stopStreaming();
     
     void getLatestDataDArray(std::array<double, 6> &data_darr);
@@ -105,6 +105,8 @@ private:
     int32 samplingHz=100;
     int32 samplingDt_ms=10;
     int32 samplingDt_us=10000;
+
+    bool verbose_ = false;
 
     // rx thread 
     std::array<double, 6> data_buf_;

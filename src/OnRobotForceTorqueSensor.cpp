@@ -30,11 +30,12 @@ OnRobotForceTorqueSensor::OnRobotForceTorqueSensor(std::string ipAddress, int32 
 	}
 
     // Connect sensor
+    this->ipAddress = ipAddress;
     openDevice(ipAddress.c_str(), PORT);
 
-    printf("OnRobot FT Sensor connected, Initializing...\n");
+    printf("OnRobot FT Sensor at %s connected, Initializing...\n", ipAddress.c_str());
 
-    // Init with default settings
+    // Init with default settings    
     setSamplingRate(sampleingHz);    // 100Hz
     setFilterType(filterType);       // default: 4 i.e 15Hz LPF
     setEnableBiasing(enableBiasing); // biasing on
@@ -46,6 +47,7 @@ OnRobotForceTorqueSensor::~OnRobotForceTorqueSensor(){
     stopStreaming();
     usleep(samplingDt_us*(SAMPLE_COUNT+2)); // wait till rx_thread is done (?)
     closeDevice();
+    printf("OnRobot FT Sensor at %s closed\n", ipAddress.c_str());
 }
 
 
@@ -72,7 +74,9 @@ Response OnRobotForceTorqueSensor::receive()
     byte inBuffer[36];
 	Response response;
 	unsigned int uItems = 0;
-	recv(handle_, (char *)inBuffer, 36, 0 );
+	int status = recv(handle_, (char *)inBuffer, 36, 0 );
+    if (status<0) return response;
+    
 	response.sequenceNumber = ntohl(*(uint32*)&inBuffer[0]);
 	response.sampleCounter = ntohl(*(uint32*)&inBuffer[4]);
 	response.status = ntohl(*(uint32*)&inBuffer[8]);

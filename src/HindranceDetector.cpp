@@ -32,8 +32,7 @@ HindranceDetector::HindranceDetector(
     E_thres = 10;
     E_max = 50;
 
-    dx_a = Eigen::VectorXd::Zero(6);
-    F_h = Eigen::VectorXd::Zero(6);
+    reset();
 
     debug << "\n||D_a||: \n" << D_a << std::endl;
     debug << "\n||M_a||: \n" << M_a << std::endl;
@@ -110,6 +109,9 @@ bool HindranceDetector::startMonitor(bool verbose){
         int dt_ms = 1000 / refreshHz;
         std::array<double, 6> data_darr;
         std::vector<double> data_vec;
+
+        unsigned int loopIdx = 0;
+
         
         while(true){
             if (pendingStop_) break;
@@ -125,7 +127,7 @@ bool HindranceDetector::startMonitor(bool verbose){
 
             computeAdmittanceOutput(F_ext);
 
-            // if (verbose_){
+            // if (verbose_ && loopIdx%20==0){
             //     debug << "sensor data : " << data_vec[0] << std::endl;
             //     debug << "sensor data : " << data_vec[1] << std::endl;
             //     debug << "sensor data : " << data_vec[2] << std::endl;
@@ -135,6 +137,7 @@ bool HindranceDetector::startMonitor(bool verbose){
             //     debug << "H : " << h << " Admitance : " << std::endl;
             //     debug << dx_a << std::endl;
             // }
+            // loopIdx+=1;
 
             // trigger callback on Hinderance detected/cleared
             if (h>0.7 && !hasHinderance_){
@@ -185,7 +188,17 @@ bool HindranceDetector::stopMonitor(){
     if (loopThread_.joinable()) loopThread_.join();
     pendingStop_ = false;
 
+    reset();
+
     return true;
+}
+
+void HindranceDetector::reset(){
+    hasHinderance_ = false;
+    h = 0.0;
+    E_m = 0.0;
+    dx_a = Eigen::VectorXd::Zero(6);
+    F_h = Eigen::VectorXd::Zero(6);
 }
 
 void HindranceDetector::addObserver(IHindranceObserver* obs){

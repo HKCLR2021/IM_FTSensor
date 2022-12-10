@@ -46,15 +46,15 @@ typedef short int16;
 typedef unsigned char byte;
 
 typedef struct ResponseStruct {
-	unsigned int sequenceNumber;    
-	unsigned int sampleCounter;  
- 	unsigned int status;		
-	int32 fx;
-	int32 fy;
-	int32 fz;
-	int32 tx;
-	int32 ty;
-	int32 tz;
+	unsigned int sequenceNumber = 0;    
+	unsigned int sampleCounter = 0;  
+ 	unsigned int status = 0;		
+	int32 fx = 0;
+	int32 fy = 0;
+	int32 fz = 0;
+	int32 tx = 0;
+	int32 ty = 0;
+	int32 tz = 0;
 } Response;
 
 class OnRobotForceTorqueSensor
@@ -102,6 +102,7 @@ private:
 
     SOCKET_HANDLE handle_;
 
+    std::string ipAddress;
     int32 samplingHz=100;
     int32 samplingDt_ms=10;
     int32 samplingDt_us=10000;
@@ -109,7 +110,7 @@ private:
     bool verbose_ = false;
 
     // rx thread 
-    std::array<double, 6> data_buf_;
+    std::array<double, 6> data_buf_ = {0., 0., 0., 0., 0., 0.};
     Response receive();
     static void* static_rx_thread(void* pThis);
     void rx_thread();

@@ -50,6 +50,9 @@ public:
     // simplify intepretation of Admittance value to has / has no Hindrance for simple usecase
     bool hasHinderance() {return hasHinderance_;}
 
+    //clear the energy tank and set to no hindrance detected
+    void reset();
+
     // h as in Eq8 of paper. range of h: 0-1
     // h=0 -> nothing oppose robot movement
     // h=1 -> persistent external force exist (eg. obstacle hit / human trying to hold and guide the robot)
@@ -87,8 +90,8 @@ private:
     double E_max;
 
     // AdmitanceControl Working params
-    double h;
-    double E_m;
+    double h = 0.0;
+    double E_m = 0.0;
 
     Eigen::VectorXd dx_a;
     Eigen::VectorXd F_h;

@@ -6,12 +6,12 @@
 template <typename T>
 void printData(T& DataArray)
 {
-    std::cout << "Data: "; 
+    // std::cout << "Data: "<< DataArray[2] << std::endl; 
     for (auto &data : DataArray)
     {
         std::cout << data << " ";
+        std::cout << std::endl;
     }
-    std::cout << std::endl;
 }
 
 // Direct force detection using raw data
@@ -26,7 +26,7 @@ void testRawDataFTDetection()
 
     printf("get double array Data\n");
     std::array<double, 6> data_darr;
-    for (int i = 0; i < 300; ++i)
+    for (int i = 0; i < 100; ++i)
     {
         ft_sensor->getLatestDataDArray(data_darr);
         printData(data_darr);
@@ -35,7 +35,7 @@ void testRawDataFTDetection()
 
     printf("get double vector Data\n");
     std::vector<double> data_vec;
-    for (int i = 0; i < 300; ++i)
+    for (int i = 0; i < 100; ++i)
     {
         ft_sensor->getLatestDataVec(data_vec);
         printData(data_vec);
@@ -58,7 +58,7 @@ void testEnergyTankFTDetection()
     ft_sensor->startStreaming();
 
     std::vector<double> data_vec;
-    for (int i = 0; i < 300; ++i)
+    for (int i = 0; i < 3000; ++i)
     {
         ft_sensor->getLatestDataVec(data_vec);
         Eigen::VectorXd F_ext = Eigen::VectorXd::Map(data_vec.data(), data_vec.size() );

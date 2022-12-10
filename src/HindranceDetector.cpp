@@ -3,16 +3,20 @@
 #include "ft_sensor/HindranceDetector.hpp"
 #include "ft_sensor/OnRobotForceTorqueSensor.hpp"
 
-#define debug if(1) std::cout
+#define debug if(1) std::cerr
 
 HindranceDetector::HindranceDetector(
     std::shared_ptr<OnRobotForceTorqueSensor> dataSrc,    
-    int refreshHz, double sensitivity
+    int refreshHz, double sensitivity,
+    double min_activate_force_N,
+    double min_activate_torque_Nm
     )
 {
     this->dataSrc = dataSrc;    
     this->refreshHz = refreshHz;
     this->sensitivity = sensitivity;
+    this->min_activate_force_N   = min_activate_force_N;
+    this->min_activate_torque_Nm = min_activate_torque_Nm;
 
     Eigen::VectorXd D_a_diag(6);
     D_a_diag << 20, 20, 20, 10, 10, 10;
@@ -23,13 +27,13 @@ HindranceDetector::HindranceDetector(
     M_a = M_a_diag.asDiagonal();
     M_a_inv = M_a.inverse();
 
-    dt = 1.0 / 100;
-    Pd_tilde = 0.25; 
+    dt = 1.0 / refreshHz;
+    Pd_tilde = 1.0; // 0.25; 
     E_thres = 10;
     E_max = 50;
 
-    dx_a = Eigen::VectorXd(6);
-    F_h = Eigen::VectorXd(6);
+    dx_a = Eigen::VectorXd::Zero(6);
+    F_h = Eigen::VectorXd::Zero(6);
 
     debug << "\n||D_a||: \n" << D_a << std::endl;
     debug << "\n||M_a||: \n" << M_a << std::endl;
@@ -58,6 +62,16 @@ double HindranceDetector::computeAdmittanceRatio()
 // expect to be called every dt (i.e. dafault 10ms)
 Eigen::VectorXd HindranceDetector::computeAdmittanceOutput(Eigen::VectorXd F_ext)
 {
+    for (int i=0;i<3;++i){
+        if ( abs(F_ext[i])<min_activate_force_N ) F_ext[i]=0; 
+        F_ext[i] *= sensitivity;
+    }
+
+    for (int i=3;i<6;++i){
+        if ( abs(F_ext[i])<min_activate_torque_Nm ) F_ext[i]=0; 
+        F_ext[i] *= sensitivity;
+    }
+
     std::lock_guard<std::mutex> lock(update_mutex_); 
 
     // Control Loop
@@ -95,6 +109,7 @@ bool HindranceDetector::startMonitor(bool verbose){
         isRunning_ = true;
         int dt_ms = 1000 / refreshHz;
         std::array<double, 6> data_darr;
+        std::vector<double> data_vec;
         
         while(true){
             if (pendingStop_) break;
@@ -102,26 +117,45 @@ bool HindranceDetector::startMonitor(bool verbose){
             auto start = std::chrono::system_clock::now();
 
             // main update logic
-            dataSrc->getLatestDataDArray(data_darr);
-            Eigen::VectorXd F_ext = Eigen::VectorXd::Map(data_darr.data(), data_darr.size() );
+            // dataSrc->getLatestDataDArray(data_darr);
+            // Eigen::VectorXd F_ext = Eigen::VectorXd::Map(data_darr.data(), data_darr.size() );
+
+            dataSrc->getLatestDataVec(data_vec);
+            Eigen::VectorXd F_ext = Eigen::VectorXd::Map(data_vec.data(), data_vec.size() );
+
             computeAdmittanceOutput(F_ext);
 
-            if (verbose_){
-                debug << "H : " << h << " Admitance : " << dx_a << std::endl;
-            }
+            // if (verbose_){
+            //     debug << "sensor data : " << data_vec[0] << std::endl;
+            //     debug << "sensor data : " << data_vec[1] << std::endl;
+            //     debug << "sensor data : " << data_vec[2] << std::endl;
+            //     debug << "sensor data : " << data_vec[3] << std::endl;
+            //     debug << "sensor data : " << data_vec[4] << std::endl;
+            //     debug << "sensor data : " << data_vec[5] << std::endl;
+            //     debug << "H : " << h << " Admitance : " << std::endl;
+            //     debug << dx_a << std::endl;
+            // }
 
             // trigger callback on Hinderance detected/cleared
             if (h>0.7 && !hasHinderance_){
                 hasHinderance_ = true;
+                if (verbose) {
+                    debug << "Hindrance Detected" << std::endl;
+                    debug << "H : " << h << " Admitance : " << std::endl;
+                    debug << dx_a << std::endl;
+                }
                 for (auto& observer : hookedObservers_){
-                    if (verbose) debug << "Hindrance Detected" << std::endl;
                     observer->onHindranceDetected();
                 }                
             }
             else if (h<0.3 && hasHinderance_){
                 hasHinderance_ = false;
+                if (verbose){
+                    debug << "Hindrance Cleared" << std::endl;
+                    debug << "H : " << h << " Admitance : " << std::endl;
+                    debug << dx_a << std::endl;
+                } 
                 for (auto& observer : hookedObservers_){
-                    if (verbose) debug << "Hindrance Cleared" << std::endl;
                     observer->onHindranceCleared();
                 }
             }

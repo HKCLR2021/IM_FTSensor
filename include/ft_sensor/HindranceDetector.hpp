@@ -29,9 +29,13 @@ class HindranceDetector
 
 public:
 
+    // force or torque below min_activate threshold are ignored
+    // those that pass are then multiplied by sensitivity
     HindranceDetector(
         std::shared_ptr<OnRobotForceTorqueSensor> dataSrc,         
-        int refreshHz=100, double sensitivity=1.0
+        int refreshHz=100, double sensitivity=1.0,
+        double min_activate_force_N = 3.0,
+        double min_activate_torque_Nm = 0.05
     );
     ~HindranceDetector();
 
@@ -66,7 +70,9 @@ private:
 
     std::shared_ptr<OnRobotForceTorqueSensor> dataSrc;
     int refreshHz;
-    double sensitivity;
+    double sensitivity = 1.0;
+    double min_activate_force_N = 3.0;
+    double min_activate_torque_Nm = 0.01;
 
     bool hasHinderance_ = false;
 

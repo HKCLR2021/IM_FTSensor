@@ -18,8 +18,8 @@ AdmittanceController::AdmittanceController()
     E_thres = 10;
     E_max = 50;
 
-    dx_a = Eigen::VectorXd(6);
-    F_h = Eigen::VectorXd(6);
+    dx_a = Eigen::VectorXd::Zero(6);
+    F_h = Eigen::VectorXd::Zero(6);
 
     debug << "\n||D_a||: \n" << D_a << std::endl;
     debug << "\n||M_a||: \n" << M_a << std::endl;
@@ -45,7 +45,19 @@ double AdmittanceController::computeAdmittanceRatio()
 Eigen::VectorXd AdmittanceController::computeAdmtOutput(Eigen::VectorXd F_ext)
 {
     // Control Loop
-    Eigen::VectorXd ddx_a = M_a_inv * (-M_a_inv * dx_a + F_ext);
+
+    double force_thres_N = 3.0;
+    double torque_thres_Nm = 0.05;
+
+    for (int i=0;i<3;i++){
+        if (abs(F_ext[i]) < force_thres_N) F_ext[i]=0.0;
+    }
+
+    for (int i=3;i<6;i++){
+        if (abs(F_ext[i]) < torque_thres_Nm) F_ext[i]=0.0;
+    }
+
+    Eigen::VectorXd ddx_a = M_a_inv * (-D_a * dx_a + F_ext);
 
     double Pi_tilde = dx_a.dot(F_ext);
     double Po_tilde = dx_a.dot(F_h);

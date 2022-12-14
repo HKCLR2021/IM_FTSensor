@@ -71,7 +71,7 @@ if __name__ == '__main__':
     # Set params
     SendCommand(s, COMMAND_SPEED, SPEED, addr)
     SendCommand(s, COMMAND_FILTER, FILTER, addr)
-    SendCommand(s, COMMAND_BIAS, BIASING_OFF, addr)
+    SendCommand(s, COMMAND_BIAS, BIASING_ON, addr)
 
     # AdmittanceController
     Da = np.diag([20, 20, 20, 10, 10, 10])

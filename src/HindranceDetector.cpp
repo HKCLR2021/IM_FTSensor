@@ -28,7 +28,7 @@ HindranceDetector::HindranceDetector(
     M_a_inv = M_a.inverse();
 
     dt = 1.0 / refreshHz;
-    Pd_tilde = 1.0; // 0.25; 
+    Pd_tilde = 0.25; // 1.0; // 0.25; 
     E_thres = 10;
     E_max = 50;
 
@@ -62,19 +62,19 @@ double HindranceDetector::computeAdmittanceRatio()
 Eigen::VectorXd HindranceDetector::computeAdmittanceOutput(Eigen::VectorXd F_ext)
 {
     for (int i=0;i<3;++i){
-        if ( abs(F_ext[i])<min_activate_force_N ) F_ext[i]=0; 
         F_ext[i] *= sensitivity;
+        if ( abs(F_ext[i])<min_activate_force_N ) F_ext[i]=0; 
     }
 
     for (int i=3;i<6;++i){
-        if ( abs(F_ext[i])<min_activate_torque_Nm ) F_ext[i]=0; 
         F_ext[i] *= sensitivity;
+        if ( abs(F_ext[i])<min_activate_torque_Nm ) F_ext[i]=0; 
     }
 
     std::lock_guard<std::mutex> lock(update_mutex_); 
 
     // Control Loop
-    Eigen::VectorXd ddx_a = M_a_inv * (-M_a_inv * dx_a + F_ext);
+    Eigen::VectorXd ddx_a = M_a_inv * (-D_a * dx_a + F_ext);
 
     double Pi_tilde = dx_a.dot(F_ext);
     double Po_tilde = dx_a.dot(F_h);
@@ -136,27 +136,74 @@ bool HindranceDetector::startMonitor(bool verbose){
             //     debug << "sensor data : " << data_vec[5] << std::endl;
             //     debug << "H : " << h << " Admitance : " << std::endl;
             //     debug << dx_a << std::endl;
+            //     loopIdx = 0;
             // }
             // loopIdx+=1;
 
+            // ====================================================
             // trigger callback on Hinderance detected/cleared
-            if (h>0.7 && !hasHinderance_){
+            // ====================================================
+            // if (h>0.7 && !hasHinderance_){
+            //     hasHinderance_ = true;
+            //     if (verbose) {
+            //         debug << "Hindrance Detected" << std::endl;
+            //         debug << "sensor data : " << data_vec[0] << std::endl;
+            //         debug << "sensor data : " << data_vec[1] << std::endl;
+            //         debug << "sensor data : " << data_vec[2] << std::endl;
+            //         debug << "sensor data : " << data_vec[3] << std::endl;
+            //         debug << "sensor data : " << data_vec[4] << std::endl;
+            //         debug << "sensor data : " << data_vec[5] << std::endl;
+            //         debug << "H : " << h << " Admitance : " << std::endl;
+            //         debug << dx_a << std::endl;
+            //     }
+            //     for (auto& observer : hookedObservers_){
+            //         observer->onHindranceDetected();
+            //     }                
+            // }
+            // else if (h<0.3 && hasHinderance_){
+            //     hasHinderance_ = false;
+            //     if (verbose){
+            //         debug << "Hindrance Cleared" << std::endl;
+            //         debug << "H : " << h << " Admitance : " << std::endl;
+            //         debug << dx_a << std::endl;
+            //     } 
+            //     for (auto& observer : hookedObservers_){
+            //         observer->onHindranceCleared();
+            //     }
+            // }
+
+            // ====================================================
+            // QUICK HACK: trigger callback on raw force sensor x,y,z value
+            // ====================================================
+            double max_force_N = 0.0;
+            for (int i=0;i<3;i++){
+                max_force_N = std::max(abs(data_vec[i]) , max_force_N);
+            }
+
+            double force_thres_high = 20.0;
+            double force_thres_low = 10.0;
+
+            if (max_force_N>force_thres_high && !hasHinderance_){
                 hasHinderance_ = true;
                 if (verbose) {
                     debug << "Hindrance Detected" << std::endl;
-                    debug << "H : " << h << " Admitance : " << std::endl;
-                    debug << dx_a << std::endl;
+                    debug << "sensor data : " << data_vec[0] << std::endl;
+                    debug << "sensor data : " << data_vec[1] << std::endl;
+                    debug << "sensor data : " << data_vec[2] << std::endl;
+                    debug << "sensor data : " << data_vec[3] << std::endl;
+                    debug << "sensor data : " << data_vec[4] << std::endl;
+                    debug << "sensor data : " << data_vec[5] << std::endl;
+                    debug << "max_force_N : " << max_force_N << std::endl;
                 }
                 for (auto& observer : hookedObservers_){
                     observer->onHindranceDetected();
                 }                
             }
-            else if (h<0.3 && hasHinderance_){
+            else if (max_force_N<force_thres_low && hasHinderance_){
                 hasHinderance_ = false;
                 if (verbose){
                     debug << "Hindrance Cleared" << std::endl;
-                    debug << "H : " << h << " Admitance : " << std::endl;
-                    debug << dx_a << std::endl;
+                    debug << "max_force_N : " << max_force_N << std::endl;
                 } 
                 for (auto& observer : hookedObservers_){
                     observer->onHindranceCleared();

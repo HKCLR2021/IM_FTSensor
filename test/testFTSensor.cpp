@@ -26,7 +26,7 @@ void testRawDataFTDetection()
 
     printf("get double array Data\n");
     std::array<double, 6> data_darr;
-    for (int i = 0; i < 100; ++i)
+    for (int i = 0; i < 30; ++i)
     {
         ft_sensor->getLatestDataDArray(data_darr);
         printData(data_darr);
@@ -35,7 +35,7 @@ void testRawDataFTDetection()
 
     printf("get double vector Data\n");
     std::vector<double> data_vec;
-    for (int i = 0; i < 100; ++i)
+    for (int i = 0; i < 30; ++i)
     {
         ft_sensor->getLatestDataVec(data_vec);
         printData(data_vec);
@@ -58,12 +58,13 @@ void testEnergyTankFTDetection()
     ft_sensor->startStreaming();
 
     std::vector<double> data_vec;
-    for (int i = 0; i < 3000; ++i)
+    for (int i = 0; i < 300000; ++i)
     {
         ft_sensor->getLatestDataVec(data_vec);
         Eigen::VectorXd F_ext = Eigen::VectorXd::Map(data_vec.data(), data_vec.size() );
         std::cout << std::endl;
-        std::cout << i << ": " << admt_ctrl.computeAdmtOutput(F_ext).transpose() << std::endl;
+        std::cout << i << ": F_ext " << data_vec[0] << " " << data_vec[1] << " "<< data_vec[2] << " "<< data_vec[3] << " "<< data_vec[4] << " "<< data_vec[5] << " "<< std::endl;
+        std::cout << i << ": AdmtOutput " << admt_ctrl.computeAdmtOutput(F_ext).transpose() << std::endl;
         std::cout << admt_ctrl.getAdmittanceRatio() << std::endl; 
         usleep(10000); // 10ms
     }

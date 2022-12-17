@@ -21,6 +21,7 @@ class IHindranceObserver {
     public:
       virtual bool onHindranceDetected(){return true;}
       virtual bool onHindranceCleared() {return true;}
+      virtual bool onDatasourceDead() {return true;}
 };
 
 
@@ -105,6 +106,8 @@ private:
     std::mutex hookedObservers_mutex_;
     std::mutex update_mutex_;
     std::thread loopThread_;
+
+    int staleDataCount = 0;
 };
 
 

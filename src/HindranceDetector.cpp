@@ -121,8 +121,23 @@ bool HindranceDetector::startMonitor(bool verbose){
             // main update logic
             // dataSrc->getLatestDataDArray(data_darr);
             // Eigen::VectorXd F_ext = Eigen::VectorXd::Map(data_darr.data(), data_darr.size() );
-
+            auto prev_data_vec = data_vec;
             dataSrc->getLatestDataVec(data_vec);
+
+            // detect datasource connection loss (i.e. data not changing)
+            if (prev_data_vec == data_vec){
+                staleDataCount += 1;
+            }
+            else{
+                staleDataCount = 0;
+            }
+            if (staleDataCount == 20){
+                debug << "Stale unchanging force reading Detected" << std::endl;
+                for (auto& observer : hookedObservers_){
+                    observer->onDatasourceDead();
+                }  
+            }
+
             Eigen::VectorXd F_ext = Eigen::VectorXd::Map(data_vec.data(), data_vec.size() );
 
             computeAdmittanceOutput(F_ext);
@@ -180,8 +195,8 @@ bool HindranceDetector::startMonitor(bool verbose){
                 max_force_N = std::max(abs(data_vec[i]) , max_force_N);
             }
 
-            double force_thres_high = 20.0;
-            double force_thres_low = 10.0;
+            double force_thres_high = 30.0;
+            double force_thres_low = 15.0;
 
             if (max_force_N>force_thres_high && !hasHinderance_){
                 hasHinderance_ = true;

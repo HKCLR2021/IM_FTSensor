@@ -131,7 +131,7 @@ bool HindranceDetector::startMonitor(bool verbose){
             else{
                 staleDataCount = 0;
             }
-            if (staleDataCount == 20){
+            if (staleDataCount == refreshHz*1){ // 1sec no change
                 debug << "Stale unchanging force reading Detected" << std::endl;
                 for (auto& observer : hookedObservers_){
                     observer->onDatasourceDead();

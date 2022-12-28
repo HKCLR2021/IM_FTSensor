@@ -162,28 +162,38 @@ void* OnRobotForceTorqueSensor::static_rx_thread(void* pThis)
 
 void OnRobotForceTorqueSensor::rx_thread()
 {
+    for (int trial=0;trial<5;trial++){
+        sendCommand(COMMAND_START, 0);
+
+        byte inBuffer[36];
+        int status = recv(handle_, (char *)inBuffer, 36, MSG_DONTWAIT );
+        if (status>0) break;
+        
+        usleep(samplingDt_us);
+    }
+
     while (!rx_stop_)
     {
-        sendCommand(COMMAND_START, SAMPLE_COUNT);
-        for (int i = 0; i < SAMPLE_COUNT; ++i)
-        {
-            Response r = receive();
-            if (verbose_) showResponse(r); // logging data
+        Response r = receive();
+        if (verbose_) showResponse(r); // logging data
 
-            // Data formatting
-            double fx = r.fx / FORCE_DIV;
-            double fy = r.fy / FORCE_DIV;
-            double fz = r.fz / FORCE_DIV;
-            double tx = r.tx / TORQUE_DIV;
-            double ty = r.ty / TORQUE_DIV;
-            double tz = r.tz / TORQUE_DIV;
+        // Data formatting
+        double fx = r.fx / FORCE_DIV;
+        double fy = r.fy / FORCE_DIV;
+        double fz = r.fz / FORCE_DIV;
+        double tx = r.tx / TORQUE_DIV;
+        double ty = r.ty / TORQUE_DIV;
+        double tz = r.tz / TORQUE_DIV;
 
-            rx_lck_.lock();
-            data_buf_ = {fx, fy, fz, tx, ty, tz};
-            rx_lck_.unlock();
+        rx_lck_.lock();
+        data_buf_ = {fx, fy, fz, tx, ty, tz};
+        rx_lck_.unlock();
 
-            usleep(samplingDt_us);
-        }
+        usleep(samplingDt_us);
+    }
+
+    for (int trial=0;trial<3;trial++){
+        sendCommand(COMMAND_STOP, 0);
     }
 
     pthread_exit(0);

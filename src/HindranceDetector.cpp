@@ -195,7 +195,8 @@ bool HindranceDetector::startMonitor(bool verbose){
                 max_force_N = std::max(abs(data_vec[i]) , max_force_N);
             }
 
-            double force_thres_high = 30.0;
+            // double force_thres_high = 30.0;
+            double force_thres_high = 60.0;
             double force_thres_low = 15.0;
 
             if (max_force_N>force_thres_high && !hasHinderance_){

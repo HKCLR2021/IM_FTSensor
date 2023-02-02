@@ -63,6 +63,7 @@ public:
 
     static std::shared_ptr<OnRobotForceTorqueSensor> getInstance(
         std::string ipAddress = "192.168.1.1", 
+        bool fake_mode = false,
         int32 sampleingHz = 100, 
         int32 filterType = 4, 
         bool enableBiasing = true
@@ -86,12 +87,14 @@ public:
     
     void getLatestDataDArray(std::array<double, 6> &data_darr);
     void getLatestDataVec(std::vector<double> &data_dvec);
+    
+    bool isFake();
 
 private:
     
     static std::map<std::string, std::weak_ptr<OnRobotForceTorqueSensor>> instances;
     
-    OnRobotForceTorqueSensor(std::string ipAddress, int32 sampleingHz, int32 filterType, bool enableBiasing);
+    OnRobotForceTorqueSensor(std::string ipAddress, int32 sampleingHz, int32 filterType, bool enableBiasing, bool fake_mode);
 
     int openDevice(const char * ipAddress, uint16 port);
     int closeDevice() { close(handle_); return 1;}
@@ -99,6 +102,8 @@ private:
     void sendCommand(uint16 command, uint32 data);
 
     void showResponse(Response r);
+
+    bool fake_mode_ = false;
 
     SOCKET_HANDLE handle_;
 

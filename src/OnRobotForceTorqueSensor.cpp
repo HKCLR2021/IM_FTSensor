@@ -4,12 +4,13 @@ std::map<std::string, std::weak_ptr<OnRobotForceTorqueSensor>> OnRobotForceTorqu
 
 std::shared_ptr<OnRobotForceTorqueSensor> OnRobotForceTorqueSensor::getInstance(
     std::string ipAddress,
+    bool fake_mode,
     int32 sampleingHz,
     int32 filterType,
     bool enableBiasing
 ){
-
     auto search = instances.find(ipAddress);
+    printf("Find ft sensor at %s\n", search->first.c_str());
     if (search != instances.end()){
         auto instance = search->second;
         if (!instance.expired()) {
@@ -19,29 +20,33 @@ std::shared_ptr<OnRobotForceTorqueSensor> OnRobotForceTorqueSensor::getInstance(
     }
 
     auto instance = std::shared_ptr<OnRobotForceTorqueSensor>(
-        new OnRobotForceTorqueSensor(ipAddress, sampleingHz, filterType, enableBiasing)
+        new OnRobotForceTorqueSensor(ipAddress, sampleingHz, filterType, enableBiasing, fake_mode)
     );
     instances[ipAddress] = instance;
     return instance;
 }
 
-OnRobotForceTorqueSensor::OnRobotForceTorqueSensor(std::string ipAddress, int32 sampleingHz, int32 filterType, bool enableBiasing)
+OnRobotForceTorqueSensor::OnRobotForceTorqueSensor(std::string ipAddress, int32 sampleingHz, int32 filterType, bool enableBiasing, bool fake_mode)
 {
-    handle_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if (handle_ == -1) {
-		fprintf(stderr, "Error, Socket could not be opened.\n");
-	}
+    fake_mode_ = fake_mode;
+    if(!isFake())
+    {
+        handle_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        if (handle_ == -1) {
+            fprintf(stderr, "Error, Socket could not be opened.\n");
+        }
 
-    // Connect sensor
-    this->ipAddress = ipAddress;
-    openDevice(ipAddress.c_str(), PORT);
+        // Connect sensor
+        this->ipAddress = ipAddress;
+        openDevice(ipAddress.c_str(), PORT);
 
-    printf("OnRobot FT Sensor at %s connected, Initializing...\n", ipAddress.c_str());
+        printf("OnRobot FT Sensor at %s connected, Initializing...\n", ipAddress.c_str());
 
-    // Init with default settings
-    setSamplingRate(sampleingHz);    // 100Hz
-    setFilterType(filterType);       // default: 4 i.e 15Hz LPF
-    setEnableBiasing(enableBiasing); // biasing on
+        // Init with default settings
+        setSamplingRate(sampleingHz);    // 100Hz
+        setFilterType(filterType);       // default: 4 i.e 15Hz LPF
+        setEnableBiasing(enableBiasing); // biasing on
+    }
 
     printf("OnRobot Initialization done.\n");
 }
@@ -49,7 +54,8 @@ OnRobotForceTorqueSensor::OnRobotForceTorqueSensor(std::string ipAddress, int32 
 OnRobotForceTorqueSensor::~OnRobotForceTorqueSensor(){
     stopStreaming();
     usleep(samplingDt_us*(SAMPLE_COUNT+2)); // wait till rx_thread is done (?)
-    closeDevice();
+    if(!isFake())
+        closeDevice();
     printf("OnRobot FT Sensor at %s closed\n", ipAddress.c_str());
 }
 
@@ -80,15 +86,31 @@ Response OnRobotForceTorqueSensor::receive()
 	int status = recv(handle_, (char *)inBuffer, 36, 0 );
     if (status<0) return response;
 
-	response.sequenceNumber = ntohl(*(uint32*)&inBuffer[0]);
-	response.sampleCounter = ntohl(*(uint32*)&inBuffer[4]);
-	response.status = ntohl(*(uint32*)&inBuffer[8]);
-	response.fx = (ntohl(*(int32*)&inBuffer[12 + (uItems++) * 4]));
-	response.fy = (ntohl(*(int32*)&inBuffer[12 + (uItems++) * 4]));
-	response.fz = (ntohl(*(int32*)&inBuffer[12 + (uItems++) * 4]));
-	response.tx = (ntohl(*(int32*)&inBuffer[12 + (uItems++) * 4]));
-	response.ty = (ntohl(*(int32*)&inBuffer[12 + (uItems++) * 4]));
-	response.tz = (ntohl(*(int32*)&inBuffer[12 + (uItems++) * 4]));
+    if (!isFake())
+    {
+        response.sequenceNumber = ntohl(*(uint32*)&inBuffer[0]);
+        response.sampleCounter = ntohl(*(uint32*)&inBuffer[4]);
+        response.status = ntohl(*(uint32*)&inBuffer[8]);
+        response.fx = (ntohl(*(int32*)&inBuffer[12 + (uItems++) * 4]));
+        response.fy = (ntohl(*(int32*)&inBuffer[12 + (uItems++) * 4]));
+        response.fz = (ntohl(*(int32*)&inBuffer[12 + (uItems++) * 4]));
+        response.tx = (ntohl(*(int32*)&inBuffer[12 + (uItems++) * 4]));
+        response.ty = (ntohl(*(int32*)&inBuffer[12 + (uItems++) * 4]));
+        response.tz = (ntohl(*(int32*)&inBuffer[12 + (uItems++) * 4]));
+    }
+    else
+    {
+        response.sequenceNumber = -1.0;
+        response.sampleCounter = -1.0;
+        response.status = -1.0;
+        response.fx = -1.0;
+        response.fy = -1.0;
+        response.fz = -1.0;
+        response.tx = -1.0;
+        response.ty = -1.0;
+        response.tz = -1.0;
+    }
+
 	return response;
 }
 
@@ -162,41 +184,52 @@ void* OnRobotForceTorqueSensor::static_rx_thread(void* pThis)
 
 void OnRobotForceTorqueSensor::rx_thread()
 {
-    for (int trial=0;trial<5;trial++){
-        sendCommand(COMMAND_START, 0);
-
-        byte inBuffer[36];
-        int status = recv(handle_, (char *)inBuffer, 36, MSG_DONTWAIT );
-        if (status>0) break;
-        
-        usleep(samplingDt_us);
-    }
-
-    while (!rx_stop_)
+    if (isFake())
     {
-        Response r = receive();
-        if (verbose_) showResponse(r); // logging data
-
-        // Data formatting
-        double fx = r.fx / FORCE_DIV;
-        double fy = r.fy / FORCE_DIV;
-        double fz = r.fz / FORCE_DIV;
-        double tx = r.tx / TORQUE_DIV;
-        double ty = r.ty / TORQUE_DIV;
-        double tz = r.tz / TORQUE_DIV;
-
         rx_lck_.lock();
-        data_buf_ = {fx, fy, fz, tx, ty, tz};
+        data_buf_ = {-1., -1., -1., -1., -1., -1.};
         rx_lck_.unlock();
-
-        usleep(samplingDt_us);
+        usleep(1000000);
     }
+    else
+    {
+        for (int trial=0;trial<5;trial++){
+            sendCommand(COMMAND_START, 0);
 
-    for (int trial=0;trial<3;trial++){
-        sendCommand(COMMAND_STOP, 0);
+            byte inBuffer[36];
+            int status = recv(handle_, (char *)inBuffer, 36, MSG_DONTWAIT );
+            if (status>0) break;
+            
+            usleep(samplingDt_us);
+        }
+
+        while (!rx_stop_)
+        {
+            Response r = receive();
+            if (verbose_) showResponse(r); // logging data
+
+            // Data formatting
+            double fx = r.fx / FORCE_DIV;
+            double fy = r.fy / FORCE_DIV;
+            double fz = r.fz / FORCE_DIV;
+            double tx = r.tx / TORQUE_DIV;
+            double ty = r.ty / TORQUE_DIV;
+            double tz = r.tz / TORQUE_DIV;
+
+            rx_lck_.lock();
+            data_buf_ = {fx, fy, fz, tx, ty, tz};
+            rx_lck_.unlock();
+
+            usleep(samplingDt_us);
+        }
+
+        for (int trial=0;trial<3;trial++){
+            sendCommand(COMMAND_STOP, 0);
+        }
+
     }
-
     pthread_exit(0);
+
 }
 
 void OnRobotForceTorqueSensor::startStreaming(bool verbose)
@@ -209,7 +242,6 @@ void OnRobotForceTorqueSensor::startStreaming(bool verbose)
         printf("start streaming failed\n");
         pthread_detach(threadid_);
     }
-
 }
 
 void OnRobotForceTorqueSensor::stopStreaming()
@@ -234,4 +266,9 @@ void OnRobotForceTorqueSensor::sendCommand(uint16 command, uint32 data)
 	// }
 	// printf("\n");
 
+}
+
+bool OnRobotForceTorqueSensor::isFake()
+{
+    return fake_mode_;
 }

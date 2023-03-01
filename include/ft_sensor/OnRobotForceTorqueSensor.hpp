@@ -110,7 +110,7 @@ private:
     std::string ipAddress;
     int32 samplingHz=100;
     int32 samplingDt_ms=10;
-    int32 samplingDt_us=10000;
+    // int32 samplingDt_us=10000;
 
     bool verbose_ = false;
 

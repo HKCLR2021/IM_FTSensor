@@ -36,7 +36,8 @@ public:
         std::shared_ptr<OnRobotForceTorqueSensor> dataSrc,         
         int refreshHz=100, double sensitivity=1.0,
         double min_activate_force_N = 3.0,
-        double min_activate_torque_Nm = 0.05
+        double min_activate_torque_Nm = 0.05,
+        double force_thres_high=75.
     );
     ~HindranceDetector();
 
@@ -77,6 +78,7 @@ private:
     double sensitivity = 1.0;
     double min_activate_force_N = 3.0;
     double min_activate_torque_Nm = 0.01;
+    double force_thres_high;
 
     bool hasHinderance_ = false;
 

@@ -9,7 +9,8 @@ HindranceDetector::HindranceDetector(
     std::shared_ptr<OnRobotForceTorqueSensor> dataSrc,    
     int refreshHz, double sensitivity,
     double min_activate_force_N,
-    double min_activate_torque_Nm
+    double min_activate_torque_Nm,
+    double force_thres_high
     )
 {
     this->dataSrc = dataSrc;    
@@ -17,6 +18,7 @@ HindranceDetector::HindranceDetector(
     this->sensitivity = sensitivity;
     this->min_activate_force_N   = min_activate_force_N;
     this->min_activate_torque_Nm = min_activate_torque_Nm;
+    this->force_thres_high = force_thres_high;
 
     Eigen::VectorXd D_a_diag(6);
     D_a_diag << 20, 20, 20, 10, 10, 10;
@@ -196,10 +198,10 @@ bool HindranceDetector::startMonitor(bool verbose){
             }
 
             // double force_thres_high = 30.0;
-            double force_thres_high = 60.0;
+            // double force_thres_high = 60.0;
             double force_thres_low = 15.0;
 
-            if (max_force_N>force_thres_high && !hasHinderance_){
+            if (max_force_N>(this->force_thres_high) && !hasHinderance_){
                 hasHinderance_ = true;
                 if (verbose) {
                     debug << "Hindrance Detected" << std::endl;

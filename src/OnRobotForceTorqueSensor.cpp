@@ -53,7 +53,7 @@ OnRobotForceTorqueSensor::OnRobotForceTorqueSensor(std::string ipAddress, int32 
 
 OnRobotForceTorqueSensor::~OnRobotForceTorqueSensor(){
     stopStreaming();
-    usleep(samplingDt_us*(SAMPLE_COUNT+2)); // wait till rx_thread is done (?)
+    // usleep(samplingDt_us*(SAMPLE_COUNT+2)); // wait till rx_thread is done (?)
     if(!isFake())
         closeDevice();
     printf("OnRobot FT Sensor at %s closed\n", ipAddress.c_str());
@@ -80,10 +80,15 @@ int OnRobotForceTorqueSensor::openDevice(const char * ipAddress, uint16 port)
 
 Response OnRobotForceTorqueSensor::receive()
 {
-    byte inBuffer[36];
+    // if socket buffers is only needed for a short period, it is recommended to use a temporary variable;
+    // This ensures that the data stored in the buffer is not retained when receive() is finished executing.
+    byte inBuffer[36] = {};
 	Response response;
-	unsigned int uItems = 0;
-	int status = recv(handle_, (char *)inBuffer, 36, 0 );
+	unsigned int uItems = 0;    
+    // flag: 0 - to read the exact number of bytes from the socket as specified by size/ 3rd para
+    // flag: others - requests diff operations on recv packet, e.g. MSG_PEEK - read data from socket w/o removing it
+    // read more: https://linux.die.net/man/2/recv
+	int status = recv(handle_, (char *)inBuffer, sizeof(inBuffer), 0 );
     if (status<0) return response;
 
     if (!isFake())
@@ -100,8 +105,8 @@ Response OnRobotForceTorqueSensor::receive()
     }
     else
     {
-        response.sequenceNumber = -1.0;
-        response.sampleCounter = -1.0;
+        response.sequenceNumber = 0.0;
+        response.sampleCounter = 0.0;
         response.status = -1.0;
         response.fx = -1.0;
         response.fy = -1.0;
@@ -150,7 +155,7 @@ bool OnRobotForceTorqueSensor::setSamplingRate(int32 samplingHz)
 {
     this->samplingHz = samplingHz;
     this->samplingDt_ms = 1000 / samplingHz;
-    this->samplingDt_us = this->samplingDt_ms * 1000;
+    // this->samplingDt_us = this->samplingDt_ms * 1000;
 
     sendCommand(COMMAND_SPEED, this->samplingDt_ms);
 
@@ -196,11 +201,12 @@ void OnRobotForceTorqueSensor::rx_thread()
         for (int trial=0;trial<5;trial++){
             sendCommand(COMMAND_START, 0);
 
-            byte inBuffer[36];
-            int status = recv(handle_, (char *)inBuffer, 36, MSG_DONTWAIT );
+            byte inBuffer[36] = {};
+            fprintf(stdout, "\nsize of inBuffer:%lu \n", sizeof(inBuffer));
+            int status = recv(handle_, (char *)inBuffer, sizeof(inBuffer), MSG_DONTWAIT );
             if (status>0) break;
             
-            usleep(samplingDt_us);
+            // usleep(samplingDt_us); since the recv() is blocking, no reason to block thereafter
         }
 
         while (!rx_stop_)
@@ -220,7 +226,7 @@ void OnRobotForceTorqueSensor::rx_thread()
             data_buf_ = {fx, fy, fz, tx, ty, tz};
             rx_lck_.unlock();
 
-            usleep(samplingDt_us);
+            // usleep(samplingDt_us);  since the recv() is blocking, no reason to block thereafter
         }
 
         for (int trial=0;trial<3;trial++){

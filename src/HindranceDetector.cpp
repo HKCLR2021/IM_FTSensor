@@ -9,7 +9,8 @@ HindranceDetector::HindranceDetector(
     std::shared_ptr<OnRobotForceTorqueSensor> dataSrc,    
     int refreshHz, double sensitivity,
     double min_activate_force_N,
-    double min_activate_torque_Nm
+    double min_activate_torque_Nm,
+    double force_thres_high
     )
 {
     this->dataSrc = dataSrc;    
@@ -17,6 +18,7 @@ HindranceDetector::HindranceDetector(
     this->sensitivity = sensitivity;
     this->min_activate_force_N   = min_activate_force_N;
     this->min_activate_torque_Nm = min_activate_torque_Nm;
+    this->force_thres_high = force_thres_high;
 
     Eigen::VectorXd D_a_diag(6);
     D_a_diag << 20, 20, 20, 10, 10, 10;
@@ -107,8 +109,8 @@ bool HindranceDetector::startMonitor(bool verbose){
     loopThread_ = std::thread([&](){
         isRunning_ = true;
         int dt_ms = 1000 / refreshHz;
-        std::array<double, 6> data_darr;
-        std::vector<double> data_vec;
+        std::array<double, 7> data_darr;
+        std::vector<double> data_src;
 
         unsigned int loopIdx = 0;
 
@@ -121,8 +123,9 @@ bool HindranceDetector::startMonitor(bool verbose){
             // main update logic
             // dataSrc->getLatestDataDArray(data_darr);
             // Eigen::VectorXd F_ext = Eigen::VectorXd::Map(data_darr.data(), data_darr.size() );
-            auto prev_data_vec = data_vec;
-            dataSrc->getLatestDataVec(data_vec);
+            std::vector<double> prev_data_vec (data_src.begin()+1, data_src.begin()+6);
+            dataSrc->getLatestDataVec(data_src);
+            std::vector<double> data_vec (data_src.begin()+1, data_src.begin()+6);
 
             // detect datasource connection loss (i.e. data not changing)
             if (prev_data_vec == data_vec){
@@ -196,19 +199,20 @@ bool HindranceDetector::startMonitor(bool verbose){
             }
 
             // double force_thres_high = 30.0;
-            double force_thres_high = 60.0;
+            // double force_thres_high = 60.0;
             double force_thres_low = 15.0;
 
-            if (max_force_N>force_thres_high && !hasHinderance_){
+            if (max_force_N>(this->force_thres_high) && !hasHinderance_){
                 hasHinderance_ = true;
                 if (verbose) {
                     debug << "Hindrance Detected" << std::endl;
-                    debug << "sensor data : " << data_vec[0] << std::endl;
-                    debug << "sensor data : " << data_vec[1] << std::endl;
-                    debug << "sensor data : " << data_vec[2] << std::endl;
-                    debug << "sensor data : " << data_vec[3] << std::endl;
-                    debug << "sensor data : " << data_vec[4] << std::endl;
-                    debug << "sensor data : " << data_vec[5] << std::endl;
+                    debug << "seq : " << data_src[0] << std::endl;
+                    debug << "fx : "  << data_src[1] << std::endl;
+                    debug << "fy : "  << data_src[2] << std::endl;
+                    debug << "fz : "  << data_src[3] << std::endl;
+                    debug << "tx : "  << data_src[4] << std::endl;
+                    debug << "ty : "  << data_src[5] << std::endl;
+                    debug << "tz : "  << data_src[6] << std::endl;
                     debug << "max_force_N : " << max_force_N << std::endl;
                 }
                 for (auto& observer : hookedObservers_){

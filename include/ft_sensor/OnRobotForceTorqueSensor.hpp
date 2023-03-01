@@ -85,7 +85,7 @@ public:
     void startStreaming(bool verbose=false);
     void stopStreaming();
     
-    void getLatestDataDArray(std::array<double, 6> &data_darr);
+    void getLatestDataDArray(std::array<double, 7> &data_darr);
     void getLatestDataVec(std::vector<double> &data_dvec);
     
     bool isFake();
@@ -110,12 +110,12 @@ private:
     std::string ipAddress;
     int32 samplingHz=100;
     int32 samplingDt_ms=10;
-    int32 samplingDt_us=10000;
+    // int32 samplingDt_us=10000;
 
     bool verbose_ = false;
 
     // rx thread 
-    std::array<double, 6> data_buf_ = {0., 0., 0., 0., 0., 0.};
+    std::array<double, 7> data_buf_ = {0., 0., 0., 0., 0., 0., 0.};
     Response receive();
     static void* static_rx_thread(void* pThis);
     void rx_thread();

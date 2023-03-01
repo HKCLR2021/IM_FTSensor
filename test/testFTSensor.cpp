@@ -25,7 +25,7 @@ void testRawDataFTDetection()
     ft_sensor->startStreaming();
 
     printf("get double array Data\n");
-    std::array<double, 6> data_darr;
+    std::array<double, 7> data_darr;
     for (int i = 0; i < 30; ++i)
     {
         ft_sensor->getLatestDataDArray(data_darr);

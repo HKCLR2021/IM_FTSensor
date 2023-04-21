@@ -106,8 +106,8 @@ bool HindranceDetector::startMonitor(bool verbose){
     // redundant safety, ensure the old loopThread is joined before overwritten with new one
     if (loopThread_.joinable()) loopThread_.join();
 
+    isRunning_ = true;
     loopThread_ = std::thread([&](){
-        isRunning_ = true;
         int dt_ms = 1000 / refreshHz;
         std::array<double, 6> data_darr;
         std::vector<double> data_vec;
